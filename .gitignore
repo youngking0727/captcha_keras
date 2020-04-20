@@ -28,3 +28,6 @@ models/
 train/
 wechat_capchat/
 captcha/
+
+
+.idea/workspace.xml
