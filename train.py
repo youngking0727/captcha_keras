@@ -5,14 +5,14 @@ import glob
 import h5py
 from keras.models import model_from_json
 import os
-# os.chdir(r'/wechat_captcha/semples/test') # 改变当前工作目录到指定的路径。
+# os.chdir(r'/wechat_captcha/semples/test') # 改变当前工作目录到指定的路:Q径。
 #获取指定目录下的所有图片
 samples = glob.glob(r'wechat_capchat/sample/*.jpg')  # 返回一个文件名的list
 print("样本数: ", len(samples))
 np.random.shuffle(samples)
 
 
-nb_train = 90000 #共有10万+样本，9万用于训练，1万+用于验证
+nb_train = 9000 #共有10万+样本，9万用于训练，1万+用于验证
 train_samples = samples[:nb_train]
 test_samples = samples[nb_train:]
 
@@ -22,6 +22,13 @@ letter_list = [chr(i) for i in range(97,123)]
 from keras.applications.xception import Xception,preprocess_input
 from keras.layers import Input,Dense,Dropout
 from keras.models import Model
+import tensorflow as tf
+
+gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.5)
+config = tf.ConfigProto(gpu_options=gpu_options)
+config.gpu_options.allow_growth = True
+session = tf.Session(config=config)
+
 
 img_size = (50, 120)
 #CNN适合在高宽都是偶数的情况，否则需要在边缘补齐，
@@ -35,7 +42,7 @@ input_image = Input(shape=(img_size[0],img_size[1],3))
 #输入图片
 #用预训练的Xception提取特征,采用平均池化
 base_model = Xception(input_tensor=input_image,
-                      weights='models/xception_weights_tf_dim_ordering_tf_kernels_notop.h5',
+                      weights='imagenet',
                       include_top=False,
                       pooling='avg')
 
@@ -59,6 +66,7 @@ model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=
 #model.summary()
 
 from scipy import misc
+import cv2
 #misc.imread把图片转化成矩阵，
 #misc.imresize重塑图片尺寸misc.imresize(misc.imread(img), img_size)  img_size是自己设定的尺寸
 #ord()函数主要用来返回对应字符的ascii码，
@@ -70,7 +78,7 @@ def data_generator(data, batch_size): #样本生成器，节省内存
         batch = np.random.choice(data, batch_size)
         x,y = [],[]
         for img in batch:
-            x.append(misc.imresize(misc.imread(img), img_size))
+            x.append(cv2.resize((cv2.imread(img), (120,50))))
 #读取resize图片,再存进x列表
             y.append([ord(i)-ord('a') for i in img[-8:-4]])
 #把验证码标签添加到y列表,ord(i)-ord('a')把对应字母转化为数字a=0，b=1……z=26
@@ -83,7 +91,7 @@ def data_generator(data, batch_size): #样本生成器，节省内存
 from keras.utils.vis_utils import plot_model
 # plot_model(model, to_file="model.png", show_shapes=True)
 
-model.fit_generator(data_generator(train_samples, 100), steps_per_epoch=1000, epochs=10, validation_data=data_generator(test_samples, 100), validation_steps=100)
+model.fit_generator(data_generator(train_samples, 36), steps_per_epoch=1000, epochs=10, validation_data=data_generator(test_samples, 100), validation_steps=100)
 #参数：generator生成器函数,
 #samples_per_epoch，每个epoch以经过模型的样本数达到samples_per_epoch时，记一个epoch结束
 #step_per_epoch:整数，当生成器返回step_per_epoch次数据是记一个epoch结束，执行下一个epoch
@@ -108,7 +116,7 @@ def predict1(num):
     step = 0
     for x,y in tqdm(data_generator(test_samples, num)):
         z = model.predict(x)
-        print (z)
+        print(z)
         z = np.array([i.argmax(axis=1) for i in z]).T
         #print (z)
         #i.argmax(axis = 1)返回每行中最大数的索引，i.argmax(axis = 0)返回每列中最大数的索引
